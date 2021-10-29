@@ -17,21 +17,38 @@ to setup
     set backtrack-complete false
   ]
 
-  create-obstacles 5 [
-    set shape "tile brick"
-    set color gray
-    move-to one-of patches
-    set size 1
-    set heading 0
-  ]
-
+  create-obstacles 5
   create-wallbuilders 1
 
-  draw-room
-  draw-furniture
+  init-floorplan
   init-vacuum
-  set all-tiles count patches with [pcolor = black]
   reset-ticks
+end
+
+to init-floorplan
+  ask patches [ if pxcor = min-pxcor [set pcolor red] ]
+  ask patches [ if pxcor = max-pxcor [set pcolor red] ]
+  ask patches [ if pycor = min-pycor [set pcolor red] ]
+  ask patches [ if pycor = max-pycor [set pcolor red] ]
+
+  (ifelse
+    floor-plan = "floor plan 1"                [ draw-floorplan-1 ]
+    floor-plan = "floor plan 2"                [ draw-floorplan-2 ]
+    floor-plan = "floor plan 3"                [ draw-floorplan-3 ]
+  )
+
+  ifelse furniture-enabled = true
+  [
+    draw-furniture
+  ]
+  [
+    ask obstacles
+    [
+      die
+    ]
+  ]
+
+  set all-tiles count patches with [pcolor = black]
 end
 
 to init-vacuum
@@ -57,12 +74,7 @@ to go
   tick
 end
 
-to draw-room
-  ask patches [ if pxcor = min-pxcor [set pcolor red] ]
-  ask patches [ if pxcor = max-pxcor [set pcolor red] ]
-  ask patches [ if pycor = min-pycor [set pcolor red] ]
-  ask patches [ if pycor = max-pycor [set pcolor red] ]
-
+to draw-floorplan-1
   ask wallbuilders
   [
     setxy -50 0
@@ -85,6 +97,120 @@ to draw-room
     forward 20
 
     repeat 48
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+    die
+  ]
+end
+
+to draw-floorplan-2
+  ask wallbuilders
+  [
+    setxy -50 0
+    face patch 0 0
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    repeat 20
+    [
+      forward 1
+    ]
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    right 90
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    forward 20
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+    die
+  ]
+end
+
+to draw-floorplan-3
+  ask wallbuilders
+  [
+    setxy -50 0
+    face patch 0 0
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    repeat 20
+    [
+      forward 1
+    ]
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    right 90
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    forward 20
+
+    repeat 30
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    repeat 20
+    [
+      forward 1
+    ]
+
+    repeat 16
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    left 90
+
+    repeat 15
+    [
+      forward 1
+      ask patch-here [ set pcolor red ]
+    ]
+
+    repeat 20
+    [
+      forward 1
+    ]
+
+    repeat 15
     [
       forward 1
       ask patch-here [ set pcolor red ]
@@ -495,9 +621,9 @@ nav-algo
 
 MONITOR
 6
-103
+248
 117
-148
+293
 Percentage Clean
 pct-clean
 17
@@ -521,6 +647,27 @@ false
 "" ""
 PENS
 "default" 1.0 0 -16777216 true "" "plot pct-clean"
+
+CHOOSER
+7
+100
+207
+145
+floor-plan
+floor-plan
+"floor plan 1" "floor plan 2" "floor plan 3"
+2
+
+SWITCH
+8
+148
+141
+181
+furniture-enabled
+furniture-enabled
+1
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
