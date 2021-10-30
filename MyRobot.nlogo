@@ -1,12 +1,14 @@
 globals [pct-clean all-tiles]
 turtles-own [turn-angle turn-state backtrack-counter backtrack-complete]
+breed [vacuums vacuum]
 breed [obstacles obstacle]
 breed [wallbuilders wallbuilder]
+breed [chaosagents chaosagent]
 
 to setup
   clear-all
 
-  create-turtles 1 [
+  create-vacuums 1 [
     set shape "ufo top"
     set color blue
     set size 4
@@ -19,9 +21,13 @@ to setup
 
   create-obstacles 5
   create-wallbuilders 1
+  create-chaosagents 1 [
+    set shape "Chaos Agent"
+    set size 4
+  ]
 
   init-floorplan
-  init-vacuum
+  init-agents
   reset-ticks
 end
 
@@ -51,11 +57,25 @@ to init-floorplan
   set all-tiles count patches with [pcolor = black]
 end
 
-to init-vacuum
-  ask turtle 0
+to init-agents
+  ask vacuums
   [
     move-to one-of patches with [pcolor = black]
     pen-down
+  ]
+
+  ifelse (chaos-agent-enabled = true)
+  [
+    ask chaosagents
+    [
+      move-to one-of patches with [pcolor = black]
+    ]
+  ]
+  [
+    ask chaosagents
+    [
+      die
+    ]
   ]
 end
 
@@ -65,6 +85,8 @@ to go
     nav-algo = "backtrack then right or left" [ move-on-collision-backtrack-right-or-left ]
     nav-algo = "zig zag"                      [ move-on-collision-zig-zag ]
   )
+
+  if (chaos-agent-enabled = true) [move-chaos-agent]
 
   set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
 
@@ -430,7 +452,7 @@ to move-on-collision-zig-zag
   ; step 1 - first half 90 degree turn
   ; step 2 - move over, or if in corner, extra turn
   ; step 3 - second half 90 degree turn
-  ask turtles [
+  ask vacuums [
     (ifelse
       turn-state = 0 [
         ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ] [
@@ -463,7 +485,7 @@ to move-on-collision-zig-zag
 end
 
 to move-on-collision-backtrack-right-or-left
-  ask turtles
+  ask vacuums
   [
     ifelse (backtrack-counter > 0)
     [
@@ -509,7 +531,8 @@ to move-on-collision-backtrack-right-or-left
 end
 
 to move-on-collision-random
-  ask turtles with [shape = "ufo top"] [
+  ask vacuums
+  [
     while [ any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray]]
     [
       ; look ahead for any red patches in the X direction
@@ -528,6 +551,41 @@ to move-on-collision-random
     forward 1
 
     ask patch-here [ set pcolor green ]
+  ]
+end
+
+to move-chaos-agent
+  ask chaosagents
+  [
+    while [([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray)]
+    [
+      ; look ahead for any red patches in the X direction
+      if ([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray)
+      [
+        set heading (- heading)
+      ]
+      ; look ahead for any red patches in the Y direction
+      if ([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray)
+      [
+        set heading (180 - heading)
+      ]
+      rt random 20 - 10
+    ]
+
+    forward .5
+    if (1 = (random 200 - 1))
+    [
+        ask patch-here [ set pcolor violet ] ;TODO Derek add random delay if vacuum hits purple patch
+    ]
+
+    if (1 = (random 200 - 1))
+    [
+      ask patches in-cone 5 60 with [pcolor = green]
+        [
+            set pcolor black
+        ]
+    ]
+
   ]
 end
 @#$#@#$#@
@@ -617,7 +675,7 @@ CHOOSER
 nav-algo
 nav-algo
 "random" "backtrack then right or left" "zig zag"
-1
+0
 
 MONITOR
 6
@@ -661,11 +719,22 @@ floor-plan
 SWITCH
 8
 148
-141
+180
 181
 furniture-enabled
 furniture-enabled
 1
+1
+-1000
+
+SWITCH
+8
+184
+181
+217
+chaos-agent-enabled
+chaos-agent-enabled
+0
 1
 -1000
 
@@ -761,6 +830,19 @@ Circle -16777216 true false 30 180 90
 Polygon -16777216 true false 162 80 132 78 134 135 209 135 194 105 189 96 180 89
 Circle -7500403 true true 47 195 58
 Circle -7500403 true true 195 195 58
+
+chaos agent
+false
+1
+Circle -2674135 true true 110 5 80
+Polygon -2674135 true true 105 90 120 195 90 285 105 300 135 300 150 225 165 300 195 300 210 285 180 195 195 90
+Rectangle -1184463 true false 127 79 172 94
+Polygon -955883 true false 195 90 240 150 225 180 165 105
+Polygon -955883 true false 105 105 60 165 75 195 135 120
+Line -2674135 true 120 30 105 0
+Line -2674135 true 135 15 105 0
+Line -2674135 true 165 15 195 0
+Line -2674135 true 180 45 195 0
 
 circle
 false
@@ -876,15 +958,6 @@ pentagon
 false
 0
 Polygon -7500403 true true 150 15 15 120 60 285 240 285 285 120
-
-person
-false
-0
-Circle -7500403 true true 110 5 80
-Polygon -7500403 true true 105 90 120 195 90 285 105 300 135 300 150 225 165 300 195 300 210 285 180 195 195 90
-Rectangle -7500403 true true 127 79 172 94
-Polygon -7500403 true true 195 90 240 150 225 180 165 105
-Polygon -7500403 true true 105 90 60 150 75 180 135 105
 
 plant
 false
