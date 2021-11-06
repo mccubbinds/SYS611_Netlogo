@@ -1,5 +1,5 @@
 globals [pct-clean all-tiles]
-turtles-own [turn-angle turn-state backtrack-counter backtrack-complete]
+turtles-own [turn-angle turn-state backtrack-counter backtrack-complete speed]
 breed [vacuums vacuum]
 breed [obstacles obstacle]
 breed [wallbuilders wallbuilder]
@@ -17,6 +17,7 @@ to setup
     set turn-state 0
     set backtrack-counter 0
     set backtrack-complete false
+    set speed vacuum-speed
   ]
 
   create-obstacles 5
@@ -24,6 +25,7 @@ to setup
   create-chaosagents 1 [
     set shape "Chaos Agent"
     set size 4
+    set speed chaos-agent-speed
   ]
 
   init-floorplan
@@ -458,7 +460,7 @@ to move-on-collision-zig-zag
         ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ] [
           set turn-state (turn-state + 1)
         ][
-          forward 1
+          forward speed
         ]
       ]
       turn-state = 1 [
@@ -467,7 +469,7 @@ to move-on-collision-zig-zag
       ]
       turn-state = 2 [
         ifelse not any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ] [
-          forward 1
+          forward speed
         ][
           ; extra turn gets us unstuck from corners
           set heading (heading + turn-angle)
@@ -491,7 +493,7 @@ to move-on-collision-backtrack-right-or-left
     [
       ifelse (([pcolor] of patch-ahead 1 != red) and ([pcolor] of patch-ahead 1 != gray))
       [
-        fd 1
+        forward 1
         ask patch-here [ set pcolor green ]
         set backtrack-counter (backtrack-counter - 1)
       ]
@@ -523,7 +525,7 @@ to move-on-collision-backtrack-right-or-left
         set backtrack-counter random 50
       ]
       [
-        fd 1
+        forward speed
         ask patch-here [ set pcolor green ]
       ]
     ]
@@ -548,7 +550,7 @@ to move-on-collision-random
       rt random 20 - 10
     ]
 
-    forward 1
+    forward speed
 
     ask patch-here [ set pcolor green ]
   ]
@@ -572,7 +574,7 @@ to move-chaos-agent
       rt random 20 - 10
     ]
 
-    forward .5
+    forward speed
     if (1 = (random 200 - 1))
     [
         ask patch-here [ set pcolor violet ] ;TODO Derek add random delay if vacuum hits purple patch
@@ -590,9 +592,9 @@ to move-chaos-agent
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-210
+331
 10
-824
+945
 625
 -1
 -1
@@ -670,7 +672,7 @@ NIL
 CHOOSER
 7
 52
-208
+212
 97
 nav-algo
 nav-algo
@@ -678,10 +680,10 @@ nav-algo
 0
 
 MONITOR
-6
-248
-117
-293
+9
+305
+120
+350
 Percentage Clean
 pct-clean
 17
@@ -689,10 +691,10 @@ pct-clean
 11
 
 PLOT
-4
-298
-204
-448
+9
+356
+209
+506
 Cleaning Progress
 ticks
 % clean
@@ -709,34 +711,64 @@ PENS
 CHOOSER
 7
 100
-207
+213
 145
 floor-plan
 floor-plan
 "floor plan 1" "floor plan 2" "floor plan 3"
-2
+0
 
 SWITCH
 8
-148
+147
+212
 180
-181
 furniture-enabled
 furniture-enabled
-1
+0
 1
 -1000
 
 SWITCH
 8
-184
-181
-217
+183
+213
+216
 chaos-agent-enabled
 chaos-agent-enabled
 0
 1
 -1000
+
+SLIDER
+7
+220
+215
+253
+vacuum-speed
+vacuum-speed
+0
+1
+0.3
+.05
+1
+square unit / tick
+HORIZONTAL
+
+SLIDER
+6
+257
+255
+290
+chaos-agent-speed
+chaos-agent-speed
+0
+1
+0.85
+.05
+1
+square unit / tick
+HORIZONTAL
 
 @#$#@#$#@
 ## WHAT IS IT?
