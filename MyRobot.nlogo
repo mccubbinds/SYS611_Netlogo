@@ -510,7 +510,7 @@ to move-on-collision-backtrack-right-or-left
       if(backtrack-complete = true)
       [
         set backtrack-complete false
-        ifelse ((random 2) > 0 )
+        ifelse ((random 2) > 0 )                    ;  Process Generator - change left or right
         [
           right 90
         ]
@@ -522,7 +522,7 @@ to move-on-collision-backtrack-right-or-left
       ifelse (([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray))
       [
         right 180
-        set backtrack-counter random 50
+        set backtrack-counter random 50             ;  Process Generator - backtrack
       ]
       [
         forward speed
@@ -547,7 +547,7 @@ to move-on-collision-random
       [
         set heading (180 - heading)
       ]
-      rt random 20 - 10
+      rt random 20 - 10                             ; Process Generator - Change Turn Angle
     ]
 
     forward speed
@@ -571,16 +571,16 @@ to move-chaos-agent
       [
         set heading (180 - heading)
       ]
-      rt random 20 - 10
+      rt random 20 - 10                             ; Process Generator - Change Turn Angle
     ]
 
     forward speed
-    if (1 = (random 200 - 1))
+    if (1 = (random 200 - 1))                       ; Process Generator - Banana Peel
     [
         ask patch-here [ set pcolor violet ] ;TODO Derek add random delay if vacuum hits purple patch
     ]
 
-    if (1 = (random 200 - 1))
+    if (1 = (random 200 - 1))                       ; Process Generator - Cause Mess
     [
       ask patches in-cone 5 60 with [pcolor = green]
         [
