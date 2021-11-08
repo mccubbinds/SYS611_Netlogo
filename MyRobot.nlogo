@@ -723,7 +723,7 @@ NIL
 CHOOSER
 7
 52
-212
+214
 97
 nav-algo
 nav-algo
@@ -731,10 +731,10 @@ nav-algo
 0
 
 MONITOR
-9
-305
-120
-350
+8
+297
+119
+342
 Percentage Clean
 pct-clean
 17
@@ -742,10 +742,10 @@ pct-clean
 11
 
 PLOT
-9
-356
-209
-506
+8
+348
+208
+498
 Cleaning Progress
 ticks
 % clean
@@ -822,10 +822,10 @@ square unit / tick
 HORIZONTAL
 
 INPUTBOX
-11
-511
-166
-571
+5
+565
+160
+625
 max-chance-of-cause-mess
 500.0
 1
@@ -833,21 +833,21 @@ max-chance-of-cause-mess
 Number
 
 INPUTBOX
-11
-574
-166
-634
+5
+628
+160
+688
 max-chance-of-banana-peel
-0.0
+500.0
 1
 0
 Number
 
 INPUTBOX
-11
-638
-169
-698
+165
+564
+321
+624
 max-hang-time
 500.0
 1
@@ -855,15 +855,25 @@ max-hang-time
 Number
 
 INPUTBOX
-11
-702
-166
-762
+165
+628
+320
+688
 max-backtrack
 50.0
 1
 0
 Number
+
+TEXTBOX
+28
+546
+308
+574
+Inputs to dictate the max value for process generators
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
