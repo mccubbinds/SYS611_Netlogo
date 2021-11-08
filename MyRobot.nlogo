@@ -1,5 +1,5 @@
 globals [pct-clean all-tiles]
-turtles-own [turn-angle turn-state backtrack-counter backtrack-complete speed]
+turtles-own [turn-angle turn-state backtrack-counter backtrack-complete speed hang-time-counter]
 breed [vacuums vacuum]
 breed [obstacles obstacle]
 breed [wallbuilders wallbuilder]
@@ -18,6 +18,7 @@ to setup
     set backtrack-counter 0
     set backtrack-complete false
     set speed vacuum-speed
+    set hang-time-counter 0
   ]
 
   create-obstacles 5
@@ -454,80 +455,121 @@ to move-on-collision-zig-zag
   ; step 1 - first half 90 degree turn
   ; step 2 - move over, or if in corner, extra turn
   ; step 3 - second half 90 degree turn
-  ask vacuums [
-    (ifelse
-      turn-state = 0 [
-        ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ] [
-          set turn-state (turn-state + 1)
-        ][
-          forward speed
+  ask vacuums
+  [
+    ifelse (hang-time-counter = 0)                                                           ; if hang-time-counter = 0 then we are not stuck on a banana
+    [
+      (ifelse
+        turn-state = 0
+        [
+          ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
+          [
+            set turn-state (turn-state + 1)
+          ]
+          [
+            if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
+            [
+              set hang-time-counter random max-hang-time                                           ; Process Generator - Hang Time
+            ]
+
+            forward speed
+          ]
         ]
-      ]
-      turn-state = 1 [
-        set heading (heading + turn-angle)
-        set turn-state (turn-state + 1)
-      ]
-      turn-state = 2 [
-        ifelse not any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ] [
-          forward speed
-        ][
-          ; extra turn gets us unstuck from corners
+        turn-state = 1
+        [
           set heading (heading + turn-angle)
+          set turn-state (turn-state + 1)
         ]
-        set turn-state (turn-state + 1)
-      ]
-      turn-state = 3 [
-        set heading (heading + turn-angle)
-        set turn-angle (- turn-angle)
-        set turn-state 0
-      ]
-    )
-    ask patch-here [ set pcolor green ]
+        turn-state = 2
+        [
+          ifelse not any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
+          [
+            if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
+            [
+              set hang-time-counter random max-hang-time                                                 ; Process Generator - Hang Time
+            ]
+
+            forward speed
+          ]
+          [
+            ; extra turn gets us unstuck from corners
+            set heading (heading + turn-angle)
+          ]
+          set turn-state (turn-state + 1)
+        ]
+        turn-state = 3
+        [
+          set heading (heading + turn-angle)
+          set turn-angle (- turn-angle)
+          set turn-state 0
+        ]
+      )
+      ask patch-here [ set pcolor green ]
+    ]
+    [
+      set hang-time-counter (hang-time-counter - 1)
+    ]
   ]
 end
 
 to move-on-collision-backtrack-right-or-left
   ask vacuums
   [
-    ifelse (backtrack-counter > 0)
+    ifelse (hang-time-counter = 0)                                                           ; if hang-time-counter = 0 then we are not stuck on a banana
     [
-      ifelse (([pcolor] of patch-ahead 1 != red) and ([pcolor] of patch-ahead 1 != gray))
+      ifelse (backtrack-counter > 0)                                                         ; if backtrack-counter > 0 then we are in the process of backtracking
       [
-        forward 1
-        ask patch-here [ set pcolor green ]
-        set backtrack-counter (backtrack-counter - 1)
-      ]
-      [
-        set backtrack-counter 0
-      ]
+        ifelse (([pcolor] of patch-ahead 1 != red) and ([pcolor] of patch-ahead 1 != gray))  ; nothing infront of vacuum
+        [
+          if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
+          [
+            set hang-time-counter random max-hang-time                                                 ; Process Generator - Hang Time
+          ]
 
-      if (backtrack-counter = 0)
+          forward speed
+          ask patch-here [ set pcolor green ]
+          set backtrack-counter (backtrack-counter - 1)
+        ]
+        [
+          set backtrack-counter 0
+        ]
+
+        if (backtrack-counter = 0)
+        [
+          set backtrack-complete true;
+        ]
+      ]
       [
-        set backtrack-complete true;
+        if(backtrack-complete = true)                                                       ; if we have completed a backtrack then clear flag and determine turn
+        [
+          set backtrack-complete false
+          ifelse ((random 2) > 0 )                                                          ;  Process Generator - change left or right
+          [
+            right 90
+          ]
+          [
+            left 90
+          ]
+        ]
+
+        ifelse (([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray))   ; something is infront of vacuum.. turn around a set backtrack
+        [
+          right 180
+          set backtrack-counter random max-backtrack                                                  ;  Process Generator - backtrack
+        ]
+        [
+          if ([pcolor] of patch-ahead speed = violet)                                      ; check for a banana and if so set hang time
+          [
+            set hang-time-counter random max-hang-time                                               ; Process Generator - Hang Time
+          ]
+
+          forward speed
+          ask patch-here [ set pcolor green ]
+        ]
       ]
     ]
     [
-      if(backtrack-complete = true)
-      [
-        set backtrack-complete false
-        ifelse ((random 2) > 0 )                    ;  Process Generator - change left or right
-        [
-          right 90
-        ]
-        [
-          left 90
-        ]
-      ]
-
-      ifelse (([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray))
-      [
-        right 180
-        set backtrack-counter random 50             ;  Process Generator - backtrack
-      ]
-      [
-        forward speed
-        ask patch-here [ set pcolor green ]
-      ]
+      set hang-time-counter (hang-time-counter - 1)
     ]
   ]
 end
@@ -535,24 +577,34 @@ end
 to move-on-collision-random
   ask vacuums
   [
-    while [ any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray]]
+    ifelse (hang-time-counter = 0)
     [
-      ; look ahead for any red patches in the X direction
-      if any? (patch-set patch-at dx 0) with [pcolor = red or pcolor = gray]
+      while [ any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray]]
       [
-        set heading (- heading)
+        ; look ahead for any red patches in the X direction
+        if any? (patch-set patch-at dx 0) with [pcolor = red or pcolor = gray]
+        [
+          set heading (- heading)
+        ]
+        ; look ahead for any red patches in the Y direction
+        if any? (patch-set patch-at 0 dy) with [pcolor = red or pcolor = gray]
+        [
+          set heading (180 - heading)
+        ]
+        rt random 20 - 10                             ; Process Generator - Change Turn Angle
       ]
-      ; look ahead for any red patches in the Y direction
-      if any? (patch-set patch-at 0 dy) with [pcolor = red or pcolor = gray]
+
+      if ([pcolor] of patch-ahead speed = violet)
       [
-        set heading (180 - heading)
+        set hang-time-counter random max-hang-time
       ]
-      rt random 20 - 10                             ; Process Generator - Change Turn Angle
+
+      forward speed
+      ask patch-here [ set pcolor green ]
     ]
-
-    forward speed
-
-    ask patch-here [ set pcolor green ]
+    [
+      set hang-time-counter (hang-time-counter - 1)       ; Process Generator - Hang Time
+    ]
   ]
 end
 
@@ -575,19 +627,18 @@ to move-chaos-agent
     ]
 
     forward speed
-    if (1 = (random 200 - 1))                       ; Process Generator - Banana Peel
+    if (1 = (random max-chance-of-banana-peel))            ; Process Generator - Banana Peel
     [
-        ask patch-here [ set pcolor violet ] ;TODO Derek add random delay if vacuum hits purple patch
+        ask patch-here [ set pcolor violet ]
     ]
 
-    if (1 = (random 200 - 1))                       ; Process Generator - Cause Mess
+    if (1 = (random max-chance-of-cause-mess))                       ; Process Generator - Cause Mess
     [
       ask patches in-cone 5 60 with [pcolor = green]
         [
             set pcolor black
         ]
     ]
-
   ]
 end
 @#$#@#$#@
@@ -749,7 +800,7 @@ vacuum-speed
 vacuum-speed
 0
 1
-0.3
+0.85
 .05
 1
 square unit / tick
@@ -764,11 +815,55 @@ chaos-agent-speed
 chaos-agent-speed
 0
 1
-0.85
+0.15
 .05
 1
 square unit / tick
 HORIZONTAL
+
+INPUTBOX
+11
+511
+166
+571
+max-chance-of-cause-mess
+500.0
+1
+0
+Number
+
+INPUTBOX
+11
+574
+166
+634
+max-chance-of-banana-peel
+0.0
+1
+0
+Number
+
+INPUTBOX
+11
+638
+169
+698
+max-hang-time
+500.0
+1
+0
+Number
+
+INPUTBOX
+11
+702
+166
+762
+max-backtrack
+50.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
