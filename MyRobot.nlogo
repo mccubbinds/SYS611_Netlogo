@@ -1,8 +1,6 @@
 globals [pct-clean all-tiles]
 turtles-own [turn-angle turn-state backtrack-counter backtrack-complete speed hang-time-counter]
 breed [vacuums vacuum]
-breed [obstacles obstacle]
-breed [wallbuilders wallbuilder]
 breed [chaosagents chaosagent]
 
 to setup
@@ -21,8 +19,6 @@ to setup
     set hang-time-counter 0
   ]
 
-  create-obstacles 5
-  create-wallbuilders 1
   create-chaosagents 1 [
     set shape "Chaos Agent"
     set size 4
@@ -34,11 +30,34 @@ to setup
   reset-ticks
 end
 
+to fill-rectangle [startX startY stopX stopY new-color]
+  ask patches with [
+    (pxcor >= startX) and
+    (pxcor <= stopX) and
+    (pycor >= startY) and
+    (pycor <= stopY)
+  ]
+  [set pcolor new-color ]
+end
+
+to draw-rectangle [startX startY stopX stopY new-color]
+  ask patches with [
+    (pxcor = startX) or (pxcor = stopX)
+  ][
+    if (pycor >= startY) and (pycor <= stopY) [set pcolor new-color]
+  ]
+
+  ask patches with [
+    (pycor = startY) or (pycor = stopY)
+  ][
+   if (pxcor >= startX) and (pxcor <= stopX) [ set pcolor new-color ]
+  ]
+
+end
+
 to init-floorplan
-  ask patches [ if pxcor = min-pxcor [set pcolor red] ]
-  ask patches [ if pxcor = max-pxcor [set pcolor red] ]
-  ask patches [ if pycor = min-pycor [set pcolor red] ]
-  ask patches [ if pycor = max-pycor [set pcolor red] ]
+  ; draw outside world border
+  draw-rectangle min-pxcor min-pycor max-pxcor max-pycor red
 
   (ifelse
     floor-plan = "floor plan 1"                [ draw-floorplan-1 ]
@@ -46,15 +65,9 @@ to init-floorplan
     floor-plan = "floor plan 3"                [ draw-floorplan-3 ]
   )
 
-  ifelse furniture-enabled = true
+  if furniture-enabled = true
   [
     draw-furniture
-  ]
-  [
-    ask obstacles
-    [
-      die
-    ]
   ]
 
   set all-tiles count patches with [pcolor = black]
@@ -100,148 +113,45 @@ to go
 end
 
 to draw-floorplan-1
-  ask wallbuilders
-  [
-    setxy -50 0
-    face patch 0 0
+  ; horizontal dividers
+  draw-rectangle -50  0    0  0   red
 
-    repeat 50
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
+  ; vertical dividers
+  draw-rectangle 0    20   0  50  red
+  ; gap from y=0 to y=20
+  draw-rectangle 0    -15  0  0   red
+  ; gap from y=-35 to y=-15
+  draw-rectangle 0    -50  0  -35 red
 
-    right 90
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    forward 20
-
-    repeat 48
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-    die
-  ]
 end
 
 to draw-floorplan-2
-  ask wallbuilders
-  [
-    setxy -50 0
-    face patch 0 0
+  ; horizontal dividers
+  draw-rectangle -50  0  -35  0   red
+  ; gap from x=-35 to x=-15
+  draw-rectangle -15  0    0  0   red
 
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
+  ; vertical dividers
+  draw-rectangle 0    -50  0  -35 red
+  ; gap from y=-35 to y=-15
+  draw-rectangle 0    -15  0  0   red
 
-    repeat 20
-    [
-      forward 1
-    ]
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    right 90
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    forward 20
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-    die
-  ]
 end
 
 to draw-floorplan-3
-  ask wallbuilders
-  [
-    setxy -50 0
-    face patch 0 0
+  ; horizontal dividers
+  draw-rectangle -50  0  -35  0   red
+  ; gap from x=-35 to x=-15
+  draw-rectangle -15  0   15  0   red
+  ; gap from x=15 to x=35
+  draw-rectangle 35   0   50  0   red
 
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    repeat 20
-    [
-      forward 1
-    ]
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    right 90
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    forward 20
-
-    repeat 30
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    repeat 20
-    [
-      forward 1
-    ]
-
-    repeat 16
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    left 90
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-
-    repeat 20
-    [
-      forward 1
-    ]
-
-    repeat 15
-    [
-      forward 1
-      ask patch-here [ set pcolor red ]
-    ]
-    die
-  ]
+  ; vertical dividers
+  draw-rectangle 0    -50  0  -35 red
+  ; gap from y=-35 to y=-15
+  draw-rectangle 0    -15  0  15  red
+  ; gap from y=15 to y=35
+  draw-rectangle 0    35   0  50  red
 end
 
 to draw-furniture
@@ -253,201 +163,31 @@ to draw-furniture
 end
 
 to draw-table
-  ask obstacle 1
-  [
-    setxy -28 20
-    face patch -28 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-      die
-  ]
+  ; table is 6x18 starting at (-29,19)
+  fill-rectangle -29 19 -24 36 gray
 end
 
 to draw-couch
-  ask obstacle 2
-  [
-    setxy 10 25
-    face patch 10 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-    right 90
-
-    repeat 3
-    [
-      repeat 4
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-      die
-  ]
+  ; couch is
+  ; 6x18 starting at (9,24)
+  fill-rectangle 9 24 14 41 gray
+  ; 12x6 starting at (9,21)
+  fill-rectangle 9 21 20 26 gray
 end
 
 to draw-chairs
-  ask obstacle 3
-  [
-    setxy -33 32
-    ask patches in-radius 2 [ set pcolor gray ]
-
-    setxy -33 22
-    ask patches in-radius 2 [ set pcolor gray ]
-
-    setxy -20 32
-    ask patches in-radius 2 [ set pcolor gray ]
-
-    setxy -20 22
-    ask patches in-radius 2 [ set pcolor gray ]
-
-    die
-  ]
+  ask patch -33 32 [ask patches in-radius 2 [ set pcolor gray ] ]
+  ask patch -33 22 [ask patches in-radius 2 [ set pcolor gray ] ]
+  ask patch -20 32 [ask patches in-radius 2 [ set pcolor gray ] ]
+  ask patch -20 22 [ask patches in-radius 2 [ set pcolor gray ] ]
 end
 
 to draw-tv
-  ask obstacle 4
-  [
-    setxy 45 25
-    face patch 45 50
-
-    repeat 12
-    [
-
-      ask patch-here [ set pcolor gray ]
-      forward 1
-    ]
-    die
-  ]
+  fill-rectangle 45 25 45 36 gray
 end
 
 to draw-bed
-  ask obstacle 5
-  [
-    setxy -45 -18
-    face patch -45 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-    setxy -40 -18
-    face patch -40 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-    setxy -35 -18
-    face patch -35 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-    setxy -30 -18
-    face patch -30 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-
-    setxy -25 -18
-    face patch -25 50
-
-    repeat 2
-    [
-      repeat 6
-      [
-        ask neighbors [ set pcolor gray ]
-        ask patch-here [ set pcolor gray ]
-        forward 3
-      ]
-
-      right 90
-      forward 3
-      right 90
-      forward 3
-    ]
-      die
-  ]
+  fill-rectangle -49 -34 -24 -17 gray
 end
 
 to move-on-collision-zig-zag
@@ -800,7 +540,7 @@ vacuum-speed
 vacuum-speed
 0
 1
-0.85
+1.0
 .05
 1
 square unit / tick
@@ -815,7 +555,7 @@ chaos-agent-speed
 chaos-agent-speed
 0
 1
-0.15
+0.1
 .05
 1
 square unit / tick
