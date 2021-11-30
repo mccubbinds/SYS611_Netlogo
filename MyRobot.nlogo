@@ -1,7 +1,26 @@
 globals [pct-clean all-tiles]
-turtles-own [turn-angle turn-state backtrack-counter backtrack-complete speed hang-time-counter]
 breed [vacuums vacuum]
 breed [chaosagents chaosagent]
+chaosagents-own [speed]
+vacuums-own [turn-angle turn-state backtrack-counter backtrack-complete speed hang-time-counter turn-clockwise]
+
+to go
+  (ifelse
+    nav-algo = "universal algo"               [ move-on-collision ]
+    nav-algo = "random"                       [ move-on-collision-random ]
+    nav-algo = "backtrack then right or left" [ move-on-collision-backtrack-right-or-left ]
+    nav-algo = "zig zag"                      [ move-on-collision-zig-zag ]
+  )
+
+  if (chaos-agent-enabled = true) [move-chaos-agent]
+
+  set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
+
+  ; terminating conditions
+  if pct-clean >= 95 [ stop ]
+  if not any? patches with [pcolor = black] [ stop ]
+  tick
+end
 
 to setup
   clear-all
@@ -17,12 +36,16 @@ to setup
     set backtrack-complete false
     set speed vacuum-speed
     set hang-time-counter 0
+    set turn-clockwise 0
   ]
 
-  create-chaosagents 1 [
-    set shape "Chaos Agent"
-    set size 4
-    set speed chaos-agent-speed
+  if (chaos-agent-enabled = true)
+  [
+    create-chaosagents 1 [
+      set shape "Chaos Agent"
+      set size 4
+      set speed chaos-agent-speed
+    ]
   ]
 
   init-floorplan
@@ -80,36 +103,10 @@ to init-agents
     pen-down
   ]
 
-  ifelse (chaos-agent-enabled = true)
+  ask chaosagents
   [
-    ask chaosagents
-    [
-      move-to one-of patches with [pcolor = black]
-    ]
+    move-to one-of patches with [pcolor = black]
   ]
-  [
-    ask chaosagents
-    [
-      die
-    ]
-  ]
-end
-
-to go
-  (ifelse
-    nav-algo = "random"                       [ move-on-collision-random ]
-    nav-algo = "backtrack then right or left" [ move-on-collision-backtrack-right-or-left ]
-    nav-algo = "zig zag"                      [ move-on-collision-zig-zag ]
-  )
-
-  if (chaos-agent-enabled = true) [move-chaos-agent]
-
-  set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
-
-  ; terminating conditions
-  if pct-clean >= 95 [ stop ]
-  if not any? patches with [pcolor = black] [ stop ]
-  tick
 end
 
 to draw-floorplan-1
@@ -190,6 +187,111 @@ to draw-bed
   fill-rectangle -49 -34 -24 -17 gray
 end
 
+to move-on-collision
+  ask vacuums
+  [
+    ; check for hangtime
+    ifelse (hang-time-counter > 0)
+    [ set hang-time-counter (hang-time-counter - 1) ]
+    ; no hangtime, do navigation
+    [
+      ask patch-here [ set pcolor green ]
+
+      (ifelse
+        ; turn-state=0 is when we are happily moving forward
+        turn-state = 0 [
+          ; check for obstacle
+          ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
+          [
+            ; obstacle detected, chage state to 'collision'
+            set turn-state (turn-state + 1)
+          ]
+          [
+            ; no obstacles, onward!
+            forward speed
+            ; check for a banana and if so set hang time
+            if ([pcolor] of patch-here = violet)
+            [
+              ; Process Generator - Hang Time
+              set hang-time-counter random max-hang-time
+            ]
+          ]
+        ]
+
+        ; turn-state=1, we detected a collision and take first turn
+        turn-state = 1 [
+          ifelse turn-clockwise = 1
+          [set heading (heading + first-angle)]
+          [set heading (heading - first-angle)]
+
+          ( ifelse
+            ;first-angle-adjust =  "exact"       ; handled above
+            first-angle-adjust =  "+/- constant" [
+              ifelse turn-clockwise = 1
+              [set heading (heading + adjustment-1 )]
+              [set heading (heading - adjustment-1 )]
+            ]
+            first-angle-adjust =  "+/- random"   [
+              set heading (heading + random (adjustment-1 * 2) - adjustment-1)
+            ]
+          )
+
+          set turn-state (turn-state + 1)
+        ]
+
+        ; turn state=2, we did a first turn, now look for any 'moving over' options
+        turn-state = 2 [
+          if (move-over-between-turns = "yes") or
+              ((move-over-between-turns = "random %") and (random 1 > 0))
+          [
+            ; moving over at current speed, check for collisions
+            ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
+            [
+              ; extra turn gets us unstuck from corners (where we fail to move over)
+              set heading (heading + random 90)
+            ]
+            [
+              ; no obstacles, onward!
+              forward speed
+              ; check for a banana and if so set hang time
+              if ([pcolor] of patch-here = violet)
+              [
+                ; Process Generator - Hang Time
+                set hang-time-counter random max-hang-time
+              ]
+            ]
+          ]
+          set turn-state (turn-state + 1)
+        ]
+
+        ; turn state=3, we moved over if necessary, now complete the final turn and go back to normal going forward.
+        turn-state = 3 [
+          ifelse turn-clockwise = 1
+          [set heading (heading + second-angle)]
+          [set heading (heading - second-angle)]
+
+          ( ifelse
+            ;second-angle-adjust =  "exact"       ; handled above
+            second-angle-adjust =  "+/- constant" [
+              ifelse turn-clockwise = 1
+              [set heading (heading + adjustment-2 )]
+              [set heading (heading - adjustment-2 )]
+            ]
+            second-angle-adjust =  "+/- random" [
+              set heading (heading + random (adjustment-2 * 2) - adjustment-2)
+            ]
+          )
+
+          ; reverse turning direction, and reset state tracker.
+          ifelse turn-clockwise = 1 [set turn-clockwise 0][set turn-clockwise 1]
+          set turn-state 0
+        ]
+      )
+    ]
+  ]
+
+end
+
 to move-on-collision-zig-zag
   ; divide zigzag turns into 3 steps
   ; step 1 - first half 90 degree turn
@@ -233,7 +335,7 @@ to move-on-collision-zig-zag
           ]
           [
             ; extra turn gets us unstuck from corners
-            set heading (heading + turn-angle)
+            set heading (heading + turn-angle + 5)
           ]
           set turn-state (turn-state + 1)
         ]
@@ -407,7 +509,7 @@ GRAPHICS-WINDOW
 0
 1
 ticks
-30.0
+6.0
 
 BUTTON
 6
@@ -461,20 +563,20 @@ NIL
 1
 
 CHOOSER
-7
-52
-214
-97
+6
+199
+213
+244
 nav-algo
 nav-algo
-"random" "backtrack then right or left" "zig zag"
-0
+"random" "backtrack then right or left" "zig zag" "universal algo"
+3
 
 MONITOR
-8
-297
-119
-342
+191
+456
+302
+501
 Percentage Clean
 pct-clean
 17
@@ -482,10 +584,10 @@ pct-clean
 11
 
 PLOT
-8
-348
-208
-498
+3
+419
+174
+539
 Cleaning Progress
 ticks
 % clean
@@ -500,65 +602,65 @@ PENS
 "default" 1.0 0 -16777216 true "" "plot pct-clean"
 
 CHOOSER
-7
-100
-213
-145
+5
+51
+211
+96
 floor-plan
 floor-plan
 "floor plan 1" "floor plan 2" "floor plan 3"
 0
 
 SWITCH
-8
-147
-212
-180
+6
+101
+210
+134
 furniture-enabled
 furniture-enabled
-0
+1
 1
 -1000
 
 SWITCH
-8
-183
-213
-216
+731
+653
+936
+686
 chaos-agent-enabled
 chaos-agent-enabled
-0
+1
 1
 -1000
 
 SLIDER
-7
-220
-215
-253
+6
+159
+211
+192
 vacuum-speed
 vacuum-speed
-0
-1
+0.05
+2
 1.0
 .05
 1
-square unit / tick
+/ tick
 HORIZONTAL
 
 SLIDER
-6
-257
-255
-290
+522
+652
+727
+685
 chaos-agent-speed
 chaos-agent-speed
-0
-1
-0.1
+0.05
+2
+0.2
 .05
 1
-square unit / tick
+/ tick
 HORIZONTAL
 
 INPUTBOX
@@ -583,16 +685,87 @@ max-chance-of-banana-peel
 0
 Number
 
+TEXTBOX
+28
+546
+308
+574
+Inputs to dictate the max value for process generators
+11
+0.0
+1
+
+CHOOSER
+11
+256
+103
+301
+first-angle
+first-angle
+90 180
+0
+
+CHOOSER
+11
+356
+103
+401
+second-angle
+second-angle
+0 90
+1
+
+CHOOSER
+108
+257
+219
+302
+first-angle-adjust
+first-angle-adjust
+"exact" "+/- constant" "+/- random"
+0
+
+CHOOSER
+109
+358
+221
+403
+second-angle-adjust
+second-angle-adjust
+"exact" "+/- constant" "+/- random"
+0
+
 INPUTBOX
-165
-564
-321
-624
-max-hang-time
-500.0
+224
+244
+320
+304
+adjustment-1
+0.0
 1
 0
 Number
+
+INPUTBOX
+225
+359
+319
+419
+adjustment-2
+0.0
+1
+0
+Number
+
+CHOOSER
+12
+307
+183
+352
+move-over-between-turns
+move-over-between-turns
+"yes" "no" "random %"
+0
 
 INPUTBOX
 165
@@ -605,15 +778,16 @@ max-backtrack
 0
 Number
 
-TEXTBOX
-28
-546
-308
-574
-Inputs to dictate the max value for process generators
-11
-0.0
+INPUTBOX
+165
+564
+321
+624
+max-hang-time
+500.0
 1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
