@@ -2,25 +2,7 @@ globals [pct-clean all-tiles]
 breed [vacuums vacuum]
 breed [chaosagents chaosagent]
 chaosagents-own [speed]
-vacuums-own [turn-angle turn-state backtrack-counter backtrack-complete speed hang-time-counter turn-clockwise]
-
-to go
-  (ifelse
-    nav-algo = "universal algo"               [ move-on-collision ]
-    nav-algo = "random"                       [ move-on-collision-random ]
-    nav-algo = "backtrack then right or left" [ move-on-collision-backtrack-right-or-left ]
-    nav-algo = "zig zag"                      [ move-on-collision-zig-zag ]
-  )
-
-  if (chaos-agent-enabled = true) [move-chaos-agent]
-
-  set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
-
-  ; terminating conditions
-  if pct-clean >= 95 [ stop ]
-  if not any? patches with [pcolor = black] [ stop ]
-  tick
-end
+vacuums-own [speed turn-angle turn-state turn-clockwise num-fwd-moves backtrack-counter backtrack-complete hang-time-counter ]
 
 to setup
   clear-all
@@ -32,11 +14,11 @@ to setup
     set heading 0
     set turn-angle 90
     set turn-state 0
+    set turn-clockwise 0
+    set num-fwd-moves 0
     set backtrack-counter 0
     set backtrack-complete false
-    set speed vacuum-speed
     set hang-time-counter 0
-    set turn-clockwise 0
   ]
 
   if (chaos-agent-enabled = true)
@@ -53,29 +35,15 @@ to setup
   reset-ticks
 end
 
-to fill-rectangle [startX startY stopX stopY new-color]
-  ask patches with [
-    (pxcor >= startX) and
-    (pxcor <= stopX) and
-    (pycor >= startY) and
-    (pycor <= stopY)
-  ]
-  [set pcolor new-color ]
-end
+to go
+  move-robot
+  if (chaos-agent-enabled = true) [move-chaos-agent]
 
-to draw-rectangle [startX startY stopX stopY new-color]
-  ask patches with [
-    (pxcor = startX) or (pxcor = stopX)
-  ][
-    if (pycor >= startY) and (pycor <= stopY) [set pcolor new-color]
-  ]
+  ; terminating conditions
+  set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
+  if pct-clean >= 95 [ stop ]
 
-  ask patches with [
-    (pycor = startY) or (pycor = stopY)
-  ][
-   if (pxcor >= startX) and (pxcor <= stopX) [ set pcolor new-color ]
-  ]
-
+  tick
 end
 
 to init-floorplan
@@ -187,9 +155,35 @@ to draw-bed
   fill-rectangle -49 -34 -24 -17 gray
 end
 
-to move-on-collision
+to fill-rectangle [startX startY stopX stopY new-color]
+  ask patches with [
+    (pxcor >= startX) and
+    (pxcor <= stopX) and
+    (pycor >= startY) and
+    (pycor <= stopY)
+  ]
+  [set pcolor new-color ]
+end
+
+to draw-rectangle [startX startY stopX stopY new-color]
+  ask patches with [
+    (pxcor = startX) or (pxcor = stopX)
+  ][
+    if (pycor >= startY) and (pycor <= stopY) [set pcolor new-color]
+  ]
+
+  ask patches with [
+    (pycor = startY) or (pycor = stopY)
+  ][
+   if (pxcor >= startX) and (pxcor <= stopX) [ set pcolor new-color ]
+  ]
+
+end
+
+to move-robot
   ask vacuums
   [
+    set speed vacuum-speed
     ; check for hangtime
     ifelse (hang-time-counter > 0)
     [ set hang-time-counter (hang-time-counter - 1) ]
@@ -201,14 +195,19 @@ to move-on-collision
         ; turn-state=0 is when we are happily moving forward
         turn-state = 0 [
           ; check for obstacle
-          ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
+          ifelse (any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]) or
+                 (num-fwd-moves = 0)
           [
             ; obstacle detected, chage state to 'collision'
             set turn-state (turn-state + 1)
+            ifelse (max-travel)
+            [set num-fwd-moves (max-travel-distance)]
+            [set num-fwd-moves (world-width + world-height)]
           ]
           [
             ; no obstacles, onward!
             forward speed
+            if (max-travel) [ set num-fwd-moves (num-fwd-moves - 1) ]
             ; check for a banana and if so set hang time
             if ([pcolor] of patch-here = violet)
             [
@@ -248,7 +247,7 @@ to move-on-collision
             ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
             [
               ; extra turn gets us unstuck from corners (where we fail to move over)
-              set heading (heading + random 90)
+              set heading (heading + 90 + random 30)
             ]
             [
               ; no obstacles, onward!
@@ -290,164 +289,6 @@ to move-on-collision
     ]
   ]
 
-end
-
-to move-on-collision-zig-zag
-  ; divide zigzag turns into 3 steps
-  ; step 1 - first half 90 degree turn
-  ; step 2 - move over, or if in corner, extra turn
-  ; step 3 - second half 90 degree turn
-  ask vacuums
-  [
-    ifelse (hang-time-counter = 0)                                                           ; if hang-time-counter = 0 then we are not stuck on a banana
-    [
-      (ifelse
-        turn-state = 0
-        [
-          ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
-          [
-            set turn-state (turn-state + 1)
-          ]
-          [
-            if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
-            [
-              set hang-time-counter random max-hang-time                                           ; Process Generator - Hang Time
-            ]
-
-            forward speed
-          ]
-        ]
-        turn-state = 1
-        [
-          set heading (heading + turn-angle)
-          set turn-state (turn-state + 1)
-        ]
-        turn-state = 2
-        [
-          ifelse not any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
-          [
-            if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
-            [
-              set hang-time-counter random max-hang-time                                                 ; Process Generator - Hang Time
-            ]
-
-            forward speed
-          ]
-          [
-            ; extra turn gets us unstuck from corners
-            set heading (heading + turn-angle + 5)
-          ]
-          set turn-state (turn-state + 1)
-        ]
-        turn-state = 3
-        [
-          set heading (heading + turn-angle)
-          set turn-angle (- turn-angle)
-          set turn-state 0
-        ]
-      )
-      ask patch-here [ set pcolor green ]
-    ]
-    [
-      set hang-time-counter (hang-time-counter - 1)
-    ]
-  ]
-end
-
-to move-on-collision-backtrack-right-or-left
-  ask vacuums
-  [
-    ifelse (hang-time-counter = 0)                                                           ; if hang-time-counter = 0 then we are not stuck on a banana
-    [
-      ifelse (backtrack-counter > 0)                                                         ; if backtrack-counter > 0 then we are in the process of backtracking
-      [
-        ifelse (([pcolor] of patch-ahead 1 != red) and ([pcolor] of patch-ahead 1 != gray))  ; nothing infront of vacuum
-        [
-          if ([pcolor] of patch-ahead speed = violet)                                        ; check for a banana and if so set hang time
-          [
-            set hang-time-counter random max-hang-time                                                 ; Process Generator - Hang Time
-          ]
-
-          forward speed
-          ask patch-here [ set pcolor green ]
-          set backtrack-counter (backtrack-counter - 1)
-        ]
-        [
-          set backtrack-counter 0
-        ]
-
-        if (backtrack-counter = 0)
-        [
-          set backtrack-complete true;
-        ]
-      ]
-      [
-        if(backtrack-complete = true)                                                       ; if we have completed a backtrack then clear flag and determine turn
-        [
-          set backtrack-complete false
-          ifelse ((random 2) > 0 )                                                          ;  Process Generator - change left or right
-          [
-            right 90
-          ]
-          [
-            left 90
-          ]
-        ]
-
-        ifelse (([pcolor] of patch-ahead 1 = red) or ([pcolor] of patch-ahead 1 = gray))   ; something is infront of vacuum.. turn around a set backtrack
-        [
-          right 180
-          set backtrack-counter random max-backtrack                                                  ;  Process Generator - backtrack
-        ]
-        [
-          if ([pcolor] of patch-ahead speed = violet)                                      ; check for a banana and if so set hang time
-          [
-            set hang-time-counter random max-hang-time                                               ; Process Generator - Hang Time
-          ]
-
-          forward speed
-          ask patch-here [ set pcolor green ]
-        ]
-      ]
-    ]
-    [
-      set hang-time-counter (hang-time-counter - 1)
-    ]
-  ]
-end
-
-to move-on-collision-random
-  ask vacuums
-  [
-    ifelse (hang-time-counter = 0)
-    [
-      while [ any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray]]
-      [
-        ; look ahead for any red patches in the X direction
-        if any? (patch-set patch-at dx 0) with [pcolor = red or pcolor = gray]
-        [
-          set heading (- heading)
-        ]
-        ; look ahead for any red patches in the Y direction
-        if any? (patch-set patch-at 0 dy) with [pcolor = red or pcolor = gray]
-        [
-          set heading (180 - heading)
-        ]
-        rt random 20 - 10                             ; Process Generator - Change Turn Angle
-      ]
-
-      if ([pcolor] of patch-ahead speed = violet)
-      [
-        set hang-time-counter random max-hang-time
-      ]
-
-      forward speed
-      ask patch-here [ set pcolor green ]
-    ]
-    [
-      set hang-time-counter (hang-time-counter - 1)       ; Process Generator - Hang Time
-    ]
-  ]
 end
 
 to move-chaos-agent
@@ -561,16 +402,6 @@ NIL
 NIL
 NIL
 1
-
-CHOOSER
-6
-199
-213
-244
-nav-algo
-nav-algo
-"random" "backtrack then right or left" "zig zag" "universal algo"
-3
 
 MONITOR
 191
@@ -702,8 +533,8 @@ CHOOSER
 301
 first-angle
 first-angle
-90 180
-0
+180 90 0 -90 -180
+1
 
 CHOOSER
 11
@@ -712,8 +543,8 @@ CHOOSER
 401
 second-angle
 second-angle
-0 90
-1
+90 0 -90
+0
 
 CHOOSER
 108
@@ -741,7 +572,7 @@ INPUTBOX
 320
 304
 adjustment-1
-0.0
+90.0
 1
 0
 Number
@@ -752,7 +583,7 @@ INPUTBOX
 319
 419
 adjustment-2
-0.0
+-1.0
 1
 0
 Number
@@ -788,6 +619,32 @@ max-hang-time
 1
 0
 Number
+
+SLIDER
+115
+198
+319
+231
+max-travel-distance
+max-travel-distance
+5
+100
+5.0
+5
+1
+NIL
+HORIZONTAL
+
+SWITCH
+6
+198
+108
+231
+max-travel
+max-travel
+0
+1
+-1000
 
 @#$#@#$#@
 ## WHAT IS IT?
