@@ -41,7 +41,7 @@ to go
 
   ; terminating conditions
   set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
-  if pct-clean >= 95 [ stop ]
+  if pct-clean >= max-clean [ stop ]
 
   tick
 end
@@ -67,7 +67,8 @@ end
 to init-agents
   ask vacuums
   [
-    move-to one-of patches with [pcolor = black]
+    move-to patch hub-x hub-y
+    ;move-to one-of patches with [pcolor = black]
     pen-down
   ]
 
@@ -130,6 +131,7 @@ end
 to draw-table
   ; table is 6x18 starting at (-29,19)
   fill-rectangle -29 19 -24 36 gray
+  ;fill-rectangle -19 - random 20 19 + random 5 -24 - random 10 26 + random 20 gray
 end
 
 to draw-couch
@@ -191,6 +193,9 @@ to move-robot
     [
       ask patch-here [ set pcolor green ]
 
+      ; check if stuck
+
+
       (ifelse
         ; turn-state=0 is when we are happily moving forward
         turn-state = 0 [
@@ -224,13 +229,12 @@ to move-robot
           [set heading (heading - first-angle)]
 
           ( ifelse
-            ;first-angle-adjust =  "exact"       ; handled above
-            first-angle-adjust =  "+/- constant" [
+            first-angle-adjust =  "constant" [
               ifelse turn-clockwise = 1
               [set heading (heading + adjustment-1 )]
               [set heading (heading - adjustment-1 )]
             ]
-            first-angle-adjust =  "+/- random"   [
+            first-angle-adjust =  "random"   [
               set heading (heading + random (adjustment-1 * 2) - adjustment-1)
             ]
           )
@@ -247,7 +251,8 @@ to move-robot
             ifelse any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]
             [
               ; extra turn gets us unstuck from corners (where we fail to move over)
-              set heading (heading + 90 + random 30)
+              if switch-left-right
+              [ set heading (heading + 90 + random stuck-random-angle) ]
             ]
             [
               ; no obstacles, onward!
@@ -270,19 +275,22 @@ to move-robot
           [set heading (heading - second-angle)]
 
           ( ifelse
-            ;second-angle-adjust =  "exact"       ; handled above
-            second-angle-adjust =  "+/- constant" [
+            second-angle-adjust =  "constant" [
               ifelse turn-clockwise = 1
               [set heading (heading + adjustment-2 )]
               [set heading (heading - adjustment-2 )]
             ]
-            second-angle-adjust =  "+/- random" [
+            second-angle-adjust =  "random" [
               set heading (heading + random (adjustment-2 * 2) - adjustment-2)
             ]
           )
 
-          ; reverse turning direction, and reset state tracker.
-          ifelse turn-clockwise = 1 [set turn-clockwise 0][set turn-clockwise 1]
+
+          if switch-left-right
+          [
+            ; reverse turning direction, and reset state tracker.
+            ifelse turn-clockwise = 1 [set turn-clockwise 0][set turn-clockwise 1]
+          ]
           set turn-state 0
         ]
       )
@@ -326,9 +334,9 @@ to move-chaos-agent
 end
 @#$#@#$#@
 GRAPHICS-WINDOW
-331
+396
 10
-945
+1010
 625
 -1
 -1
@@ -404,10 +412,10 @@ NIL
 1
 
 MONITOR
-191
-456
-302
-501
+193
+494
+304
+539
 Percentage Clean
 pct-clean
 17
@@ -449,7 +457,7 @@ SWITCH
 134
 furniture-enabled
 furniture-enabled
-1
+0
 1
 -1000
 
@@ -460,7 +468,7 @@ SWITCH
 686
 chaos-agent-enabled
 chaos-agent-enabled
-1
+0
 1
 -1000
 
@@ -553,7 +561,7 @@ CHOOSER
 302
 first-angle-adjust
 first-angle-adjust
-"exact" "+/- constant" "+/- random"
+"constant" "random"
 0
 
 CHOOSER
@@ -563,16 +571,16 @@ CHOOSER
 403
 second-angle-adjust
 second-angle-adjust
-"exact" "+/- constant" "+/- random"
+"constant" "random"
 0
 
 INPUTBOX
 224
-244
-320
-304
+256
+310
+316
 adjustment-1
-90.0
+0.0
 1
 0
 Number
@@ -580,10 +588,10 @@ Number
 INPUTBOX
 225
 359
-319
+314
 419
 adjustment-2
--1.0
+0.0
 1
 0
 Number
@@ -645,6 +653,65 @@ max-travel
 0
 1
 -1000
+
+SLIDER
+191
+439
+380
+472
+max-clean
+max-clean
+0
+100
+99.0
+1
+1
+percent
+HORIZONTAL
+
+INPUTBOX
+256
+51
+327
+111
+hub-x
+49.0
+1
+0
+Number
+
+INPUTBOX
+255
+116
+328
+176
+hub-y
+5.0
+1
+0
+Number
+
+SWITCH
+224
+321
+383
+354
+switch-left-right
+switch-left-right
+0
+1
+-1000
+
+INPUTBOX
+319
+360
+383
+420
+stuck-random-angle
+5.0
+1
+0
+Number
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1031,7 +1098,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.0
+NetLogo 6.2.1
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
