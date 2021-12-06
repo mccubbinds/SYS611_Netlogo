@@ -21,9 +21,9 @@ to setup
     set hang-time-counter 0
   ]
 
-  if (chaos-agent-enabled = true)
+  if (number-of-chaos-agents > 0)
   [
-    create-chaosagents 1 [
+    create-chaosagents number-of-chaos-agents [
       set shape "Chaos Agent"
       set size 4
       set speed chaos-agent-speed
@@ -37,7 +37,7 @@ end
 
 to go
   move-robot
-  if (chaos-agent-enabled = true) [move-chaos-agent]
+  if (number-of-chaos-agents > 0) [move-chaos-agent]
 
   ; terminating conditions
   set pct-clean floor (count patches with [pcolor = green] * 100 / all-tiles)
@@ -187,10 +187,10 @@ to move-robot
   [
     set speed vacuum-speed
     ; check for hangtime
-    ifelse (hang-time-counter > 0)
-    [ set hang-time-counter (hang-time-counter - 1) ]
-    ; no hangtime, do navigation
-    [
+;    ifelse (hang-time-counter > 0)
+;    [ set hang-time-counter (hang-time-counter - 1) ]
+;    ; no hangtime, do navigation
+;    [
       ask patch-here [ set pcolor green ]
 
       ; check if stuck
@@ -201,7 +201,8 @@ to move-robot
         turn-state = 0 [
           ; check for obstacle
           ifelse (any? (patch-set patch-at dx dy) with [pcolor = red or pcolor = gray ]) or
-                 (num-fwd-moves = 0)
+                 (num-fwd-moves = 0) or
+                 (any? (chaosagents-on patches in-cone 5 60))
           [
             ; obstacle detected, chage state to 'collision'
             set turn-state (turn-state + 1)
@@ -214,11 +215,11 @@ to move-robot
             forward speed
             if (max-travel) [ set num-fwd-moves (num-fwd-moves - 1) ]
             ; check for a banana and if so set hang time
-            if ([pcolor] of patch-here = violet)
-            [
-              ; Process Generator - Hang Time
-              set hang-time-counter random max-hang-time
-            ]
+;            if ([pcolor] of patch-here = violet)
+;            [
+;              ; Process Generator - Hang Time
+;              set hang-time-counter random max-hang-time
+;            ]
           ]
         ]
 
@@ -258,11 +259,11 @@ to move-robot
               ; no obstacles, onward!
               forward speed
               ; check for a banana and if so set hang time
-              if ([pcolor] of patch-here = violet)
-              [
-                ; Process Generator - Hang Time
-                set hang-time-counter random max-hang-time
-              ]
+;              if ([pcolor] of patch-here = violet)
+;              [
+;                ; Process Generator - Hang Time
+;                set hang-time-counter random max-hang-time
+;              ]
             ]
           ]
           set turn-state (turn-state + 1)
@@ -294,7 +295,7 @@ to move-robot
           set turn-state 0
         ]
       )
-    ]
+;    ]
   ]
 
 end
@@ -318,18 +319,18 @@ to move-chaos-agent
     ]
 
     forward speed
-    if (1 = (random max-chance-of-banana-peel))            ; Process Generator - Banana Peel
-    [
-        ask patch-here [ set pcolor violet ]
-    ]
-
-    if (1 = (random max-chance-of-cause-mess))                       ; Process Generator - Cause Mess
-    [
-      ask patches in-cone 5 60 with [pcolor = green]
-        [
-            set pcolor black
-        ]
-    ]
+;    if (1 = (random max-chance-of-banana-peel))            ; Process Generator - Banana Peel
+;    [
+;        ask patch-here [ set pcolor violet ]
+;    ]
+;
+;    if (1 = (random max-chance-of-cause-mess))                       ; Process Generator - Cause Mess
+;    [
+;      ask patches in-cone 5 60 with [pcolor = green]
+;        [
+;            set pcolor black
+;        ]
+;    ]
   ]
 end
 @#$#@#$#@
@@ -412,10 +413,10 @@ NIL
 1
 
 MONITOR
-193
-494
-304
-539
+1022
+255
+1133
+300
 Percentage Clean
 pct-clean
 17
@@ -423,10 +424,10 @@ pct-clean
 11
 
 PLOT
-3
-419
-174
-539
+1021
+11
+1366
+250
 Cleaning Progress
 ticks
 % clean
@@ -461,22 +462,11 @@ furniture-enabled
 1
 -1000
 
-SWITCH
-731
-653
-936
-686
-chaos-agent-enabled
-chaos-agent-enabled
-0
-1
--1000
-
 SLIDER
-6
-159
-211
-192
+5
+196
+210
+229
 vacuum-speed
 vacuum-speed
 0.05
@@ -488,108 +478,86 @@ vacuum-speed
 HORIZONTAL
 
 SLIDER
-522
-652
-727
-685
+13
+582
+274
+615
 chaos-agent-speed
 chaos-agent-speed
 0.05
 2
-0.2
+0.25
 .05
 1
 / tick
 HORIZONTAL
 
-INPUTBOX
-5
-565
-160
-625
-max-chance-of-cause-mess
-500.0
-1
-0
-Number
-
-INPUTBOX
-5
-628
-160
-688
-max-chance-of-banana-peel
-500.0
-1
-0
-Number
-
 TEXTBOX
-28
-546
-308
-574
-Inputs to dictate the max value for process generators
+247
+55
+348
+83
+Docking Location
 11
 0.0
 1
 
 CHOOSER
-11
-256
-103
-301
+9
+281
+101
+326
 first-angle
 first-angle
 180 90 0 -90 -180
 1
 
 CHOOSER
-11
-356
-103
-401
+12
+415
+104
+460
 second-angle
 second-angle
 90 0 -90
 0
 
 CHOOSER
-108
-257
-219
-302
+106
+282
+217
+327
 first-angle-adjust
 first-angle-adjust
 "constant" "random"
 0
 
 CHOOSER
-109
-358
-221
-403
+108
+415
+220
+460
 second-angle-adjust
 second-angle-adjust
 "constant" "random"
 0
 
 INPUTBOX
-224
-256
-310
-316
+221
+282
+307
+342
 adjustment-1
-0.0
+15.0
 1
 0
 Number
 
 INPUTBOX
-225
-359
-314
-419
+223
+415
+301
+475
 adjustment-2
 0.0
 1
@@ -598,82 +566,60 @@ Number
 
 CHOOSER
 12
-307
-183
 352
+183
+397
 move-over-between-turns
 move-over-between-turns
 "yes" "no" "random %"
-0
-
-INPUTBOX
-165
-628
-320
-688
-max-backtrack
-50.0
 1
-0
-Number
-
-INPUTBOX
-165
-564
-321
-624
-max-hang-time
-500.0
-1
-0
-Number
 
 SLIDER
-115
-198
-319
-231
+116
+239
+320
+272
 max-travel-distance
 max-travel-distance
 5
 100
-5.0
+50.0
 5
 1
 NIL
 HORIZONTAL
 
 SWITCH
-6
-198
-108
-231
+7
+239
+109
+272
 max-travel
 max-travel
-0
+1
 1
 -1000
 
 SLIDER
-191
-439
-380
-472
+1141
+257
+1330
+290
 max-clean
 max-clean
 0
 100
-99.0
+50.0
 1
 1
 percent
 HORIZONTAL
 
 INPUTBOX
-256
-51
-327
-111
+215
+74
+286
+134
 hub-x
 49.0
 1
@@ -681,10 +627,10 @@ hub-x
 Number
 
 INPUTBOX
-255
-116
-328
-176
+293
+74
+366
+134
 hub-y
 5.0
 1
@@ -692,26 +638,61 @@ hub-y
 Number
 
 SWITCH
-224
-321
-383
-354
+192
+353
+351
+386
 switch-left-right
 switch-left-right
-0
+1
 1
 -1000
 
 INPUTBOX
-319
-360
-383
-420
+14
+480
+130
+540
 stuck-random-angle
 5.0
 1
 0
 Number
+
+SLIDER
+12
+620
+276
+653
+number-of-chaos-agents
+number-of-chaos-agents
+0
+5
+5.0
+1
+1
+chaos agents
+HORIZONTAL
+
+TEXTBOX
+23
+176
+173
+194
+Vacuum Behavior
+11
+0.0
+0
+
+TEXTBOX
+29
+561
+179
+579
+Chaos Agent Behavior
+11
+0.0
+1
 
 @#$#@#$#@
 ## WHAT IS IT?
@@ -1098,7 +1079,7 @@ false
 Polygon -7500403 true true 270 75 225 30 30 225 75 270
 Polygon -7500403 true true 30 75 75 30 270 225 225 270
 @#$#@#$#@
-NetLogo 6.2.1
+NetLogo 6.2.0
 @#$#@#$#@
 @#$#@#$#@
 @#$#@#$#@
